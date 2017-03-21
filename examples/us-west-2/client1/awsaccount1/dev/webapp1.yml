@@ -1,0 +1,12 @@
+aws_ssh_key_id: uswest2_account1_webapp1_dev
+aws_ssh_key_path: $HOME/.ssh/uswest2_account1_webapp1_dev.pem
+aws_vpc_id: vpc-00000000
+aws_iam_instance_profile: webapp1-dev
+aws_security_groups:
+  - sg-00000000
+  - sg-00000000
+  - sg-00000000
+aws_subnets_public:
+  - subnet-00000000
+aws_subnets_private:
+  - subnet-00000000
