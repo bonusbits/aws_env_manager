@@ -5,39 +5,33 @@ script_version=1.0.0
 
 function help_message () {
 helpmessage="Description:
-    This script uses the AWS CLI and BASH to create, update, delete or get
-    status of a CloudFormation Stack. It uses the AWS CLI to push the
-    CloudFormation Template to AWS. Then loops over and over checking
-    status of the stack.
+    This script uses set shell environment variables related to AWS.
+    Such as, for Test Kitchen and AWS CLI.
 
 YAML Config File Format Example:
-    stackname: stack1
-    profilename: awsaccount
-    templateurl: https://s3.amazonaws.com/bucket/webapp1.yml # Or .json
-    templatelocal: /path/to/cfn/templates/webapp1.yml # Unless using URL
-    parametersfilepath: $HOME/.cfnl/uswest2/client1/account1/dev/webapp1.json
-    capabilityiam: false
-    capabilitynamediam: false
-    deletecreatefailures: true
-    uses3template: true
-    nolog: false
-    logfile: $HOME/.cfnl/logs/uswest2/client1/account1/dev/webapp1.log
-    verbose: true
-    waittime: 5
-    maxwaits: 180
+    AWS_REGION: 'us-west-2'
+    AWS_PROFILE: 'myprofile'
+    AWS_PUBLIC_IP: 'false'
+    AWS_SSH_KEY_ID: 'account_dev'
+    AWS_SSH_KEY_PATH: '$HOME/.ssh/account.pem'
+    AWS_VPC_ID: 'vpc-00000000'
+    AWS_IAM_INSTANCE_PROFILE_1: 'base-iam-policy'
+    AWS_SECURITY_GROUP_1: 'sg-00000000'
+    AWS_SECURITY_GROUP_2: 'sg-00000000'
+    AWS_SECURITY_GROUP_3: 'sg-00000000'
+    AWS_SECURITY_GROUP_4: 'sg-00000000'
+    AWS_SUBNET_PUBLIC: 'subnet-00000000'
+    AWS_SUBNET_PRIVATE: 'subnet-00000000'
 
 Examples:
-    Create Stack
-    $0 -f $HOME/.cfnl/uswest2/client1/account1/dev/webapp1.yml
+    Set Env Vars
+    $0 -f $HOME/.aem/uswest2/client1/account1/dev/webapp1.yml
 
-    Update Stack
-    $0 -u -f $HOME/.cfnl/uswest2/client1/account1/dev/webapp1.yml
+    Show Current Settings
+    $0 -s
 
-    Delete Stack
-    $0 -d -f $HOME/.cfnl/uswest2/client1/account1/dev/webapp1.yml
-
-    Stack Status
-    $0 -s -f $HOME/.cfnl/uswest2/client1/account1/dev/webapp1.yml
+    Clear Current Settings
+    $0 -c
 
 Author:
     Levon Becker
@@ -54,11 +48,12 @@ versionmessage="AWS Environment Manager v$script_version"
 }
 
 function usage() {
-usagemessage="Usage: $0 [-u | -d | -s] -c ./config_file.yml
+usagemessage="Usage: $0 [options] -f ./config_file.yml
 
 Options:
-    -c Config YAML      :  (Required) YAML Script Config File Full Path
-    -s Show             :  (Action Flag) Sets Action to Get Stack Status
+    -f YAML File        :  (Required) YAML Script Config File Full Path
+    -c Clear            :  (Flag) Clear All AWS Env variables
+    -s Show             :  (Flag) Show Current AWS Env variables
     -d Debug Output     :  Display Additional Output for Debugging
     -h Help             :  Displays Help Information
     -v Version          :  Displays Script Version
@@ -68,10 +63,11 @@ Options:
     echo "$usagemessage";
 }
 
-while getopts "c:dhsv" opts; do
+while getopts "f:cdhsv" opts; do
     case $opts in
         d ) debug=true;;
-        c ) config_file_path=$OPTARG;;
+        f ) config_file_path=$OPTARG;;
+        c ) clear=true;;
         s ) show=true;;
         h ) help_message; exit 0;;
         v ) version_message; exit 0;;
@@ -82,13 +78,6 @@ if [ "$config_file_path" == "" ]; then
 usage
 echo 'ERROR: A YAML Config File is Required!'
 exit 1
-fi
-
-# Set Task Type
-if [ "$update" == "true" ]; then
-    task_type=update-stack
-else
-    task_type=create-stack
 fi
 
 function parse_yaml() {
@@ -124,22 +113,10 @@ function show_header {
     fi
 
 	if [ "$debug" == "true" ]; then
-	    message "** Start CloudFormation Launcher v$script_version **"
+	    message "** Start AWS Environment Manager v$script_version **"
         message '** PARAMETERS **'
         message "ACTION: $ACTION"
         message "STACK NAME: $yaml_stackname"
-        message "PROFILE: $yaml_profilename"
-        message "TEMPLATE: $TEMPLATE"
-        message "PARAMETERS FILE: $yaml_parametersfilepath"
-        message "CAPABILITY IAM: $yaml_capabilityiam"
-        message "CAPABILITY NAMED IAM: $yaml_capabilitynamediam"
-        message "NO LOG: $yaml_nolog"
-        message "LOG FILE: $yaml_logfile"
-        message "VERBOSE: $yaml_verbose"
-        message "LAUNCHER CONFIG: $config_file_path"
-        message "DELETE ON FAILURE: $yaml_deletecreatefailures"
-        message "WAIT TIME (Sec): $yaml_waittime"
-        message "MAX WAITS (Loops): $yaml_maxwaits"
 	else
 	    message "** Start CloudFormation Launcher v$script_version **"
         message "ACTION: $ACTION"
@@ -162,4 +139,42 @@ function exit_check {
             exit $1
         fi
     fi
+}
+
+# Kitchen-EC2
+function aws-region(){
+	export AWS_DEFAULT_REGION=$1
+	export AWS_REGION=$1
+}
+
+function aws-clear(){
+	# With varying number of SG and IAM Instance Profiles then need to be cleared in-between sets
+	unset AWS_SSH_KEY_ID AWS_SSH_KEY_PATH AWS_PROFILE AWS_DEFAULT_REGION AWS_REGION AWS_VPC_ID AWS_SUBNET AWS_PUBLIC_IP
+	unset AWS_IAM_INSTANCE_PROFILE_1 AWS_IAM_INSTANCE_PROFILE_2 AWS_IAM_INSTANCE_PROFILE_3 AWS_IAM_INSTANCE_PROFILE_4 AWS_IAM_INSTANCE_PROFILE_5
+	unset AWS_SECURITY_GROUP_1 AWS_SECURITY_GROUP_2 AWS_SECURITY_GROUP_3 AWS_SECURITY_GROUP_4 AWS_SECURITY_GROUP_5
+}
+
+function aws-show() {
+	echo ''
+	echo "Configured AWS Environment Variables"
+	echo "--------------------------------------"
+	echo "AWS_SSH_KEY_ID = $AWS_SSH_KEY_ID"
+	echo "AWS_SSH_KEY_PATH = $AWS_SSH_KEY_PATH"
+	echo "AWS_PROFILE = $AWS_PROFILE"
+	echo "AWS_DEFAULT_REGION = $AWS_DEFAULT_REGION"
+	echo "AWS_REGION = $AWS_REGION"
+	echo "AWS_VPC_ID = $AWS_VPC_ID"
+	echo "AWS_SUBNET = $AWS_SUBNET"
+	echo "AWS_PUBLIC_IP = $AWS_PUBLIC_IP"
+	echo "AWS_IAM_INSTANCE_PROFILE_1 = $AWS_IAM_INSTANCE_PROFILE_1"
+	if [ -n "$AWS_IAM_INSTANCE_PROFILE_2" ]; then	echo "AWS_IAM_INSTANCE_PROFILE_2 = $AWS_IAM_INSTANCE_PROFILE_2"; fi
+	if [ -n "$AWS_IAM_INSTANCE_PROFILE_3" ]; then	echo "AWS_IAM_INSTANCE_PROFILE_3 = $AWS_IAM_INSTANCE_PROFILE_3"; fi
+	if [ -n "$AWS_IAM_INSTANCE_PROFILE_4" ]; then	echo "AWS_IAM_INSTANCE_PROFILE_4 = $AWS_IAM_INSTANCE_PROFILE_4"; fi
+	if [ -n "$AWS_IAM_INSTANCE_PROFILE_5" ]; then	echo "AWS_IAM_INSTANCE_PROFILE_5 = $AWS_IAM_INSTANCE_PROFILE_5"; fi
+	echo "AWS_SECURITY_GROUP_1 = $AWS_SECURITY_GROUP_1";
+	if [ -n "$AWS_SECURITY_GROUP_2" ]; then	echo "AWS_SECURITY_GROUP_2 = $AWS_SECURITY_GROUP_2"; fi
+	if [ -n "$AWS_SECURITY_GROUP_3" ]; then	echo "AWS_SECURITY_GROUP_3 = $AWS_SECURITY_GROUP_3"; fi
+	if [ -n "$AWS_SECURITY_GROUP_4" ]; then	echo "AWS_SECURITY_GROUP_4 = $AWS_SECURITY_GROUP_4"; fi
+	if [ -n "$AWS_SECURITY_GROUP_5" ]; then	echo "AWS_SECURITY_GROUP_5 = $AWS_SECURITY_GROUP_5"; fi
+	echo ''
 }
