@@ -143,14 +143,23 @@ def show_values
   end
 end
 
+def export_values
+  %i[AWS_REGION AWS_PROFILE AWS_SSH_KEY_ID AWS_SSH_KEY_PATH
+     AWS_VPC_ID AWS_IAM_INSTANCE_PROFILE AWS_SECURITY_GROUP_1
+     AWS_PUBLIC_IP].each do |k|
+    puts "export #{k}='#{ENV[k]}'"
+  end
+end
+
 def run
   if @options['show_envs']
     show_values
   else
-    show_header
+    # show_header
     load_config_yaml
     set_values
-    show_values
+    # show_values
+    export_values
   end
   # show_footer
 end
